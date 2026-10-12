@@ -1,8 +1,6 @@
 import { auth } from "../../../auth";
 import connectDB from "../../../lib/db";
 import Task from "../../../models/Task";
-import type { TaskRecord } from "../../../models/Task";
-import type { FilterQuery } from "mongoose";
 import mongoose from "mongoose";
 import { NextResponse } from "next/server";
 
@@ -13,9 +11,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const query = searchParams.get("q")?.trim();
-  const filter: FilterQuery<TaskRecord> = { userId: new mongoose.Types.ObjectId(session.user.id) };
-  if (status === "todo" || status === "in-progress" || status === "done") filter.status = status;
-  if (query) filter.title = { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" };
+  const filter = {
+    userId: new mongoose.Types.ObjectId(session.user.id),
+    ...(status === "todo" || status === "in-progress" || status === "done" ? { status } : {}),
+    ...(query
+      ? { title: { $regex: query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" as const } }
+      : {}),
+  };
 
   await connectDB();
   const tasks = await Task.find(filter).sort({ updatedAt: -1 }).lean();
